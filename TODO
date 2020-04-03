@@ -1,0 +1,25 @@
+Log daily completed habits.
+Remind the user about his daily habits.
+
+
+Technologies:
+  ☐ Python/Django for the backend
+  ☐ PostgreSQL for database
+  ☐ Javascript/Reactjs for the frontend
+  ☐ HTML/CSS for the frontend
+
+Build API:
+  Build an api that the frontend can use to request for the required data.
+  GET:
+    ✔ current month @done(20-03-31 18:58)
+    ✔ user habit list @started(20-03-31 18:58) @done(20-04-01 12:14) @lasted(17h16m2s)
+    ✔ habits completed days for the requested month (for all habits) @done(20-04-01 12:14)
+    ✔ habit completed days for the requested month (for the request habit only) @done(20-04-01 12:35)
+
+  POST:
+    ☐ Checked days for a particular habit
+      ☐ Store the newly checked days
+      ☐ If a day that was checked before doesn't appear in the post request than remove that checked day from 
+    
+Things to learn:
+  ☐ Learn how to use graphql and implement it on this project
