@@ -26,45 +26,66 @@ def get_template_by_habit_id_and_month(request, habit_id, month):
 #Need to use timezone instead of datetime, read about timezone below
 #https://docs.djangoproject.com/en/3.0/topics/i18n/timezones/
 #Is good practice to store datetime data in UTC. The main reason is Daylight Saving Time.
-def get_all_templates(month=timezone.now().month):
+#Returns {} if nothing is found or parameters are incorrect
+def get_all_templates(month=None, year=None):
+    now = timezone.now()
+    month = month if month is not None else now.month
+    year = year if year is not None else now.year
     items = {}
-    if 1 <= month <= 31:
+
+    if utils.is_month(month) and utils.is_year(year):
         habits = Habit.objects.all()
-        for habit in habits:
-            items[habit.id] = {'id': habit.id, 'name': habit.name, 'checkeddays': {}}
-            for index, day in enumerate(habit.checkedday_set.filter(date__month=month)):
-                items[habit.id]['checkeddays'][index] = {'date': f"{utils.format_date(day.date.month, day.date.day, day.date.year)}"}            
+        for index, habit in enumerate(habits):
+            days = habit.checkedday_set.filter(date__month=month, date__year=year)
+            items[index] = create_template(habit, days)
 
     return items
 
-def get_template(habit_id, month=timezone.now().month):
-    items = {}
-    try:
-        habit = Habit.objects.get(pk=habit_id)
-        items[habit.id] = {'id': habit.id, 'name': habit.name, 'checkedday':{}}
-        for index, day in enumerate(habit.checkedday_set.filter(date__month=month)):
-            items[habit.id]['checkedday'][index] = {'date': f"{utils.format_date(day.date.month, day.date.day, day.date.year)}"}
-    except Habit.DoesNotExist:
-        pass
+def get_template(habit_id, month=None, year=None):
+    now = timezone.now()
+    month = month if month is not None else now.month
+    year = year if year is not None else now.year
+    item = {}
+
+    if utils.is_month(month) and utils.is_year(year):
+        try:
+            habit = Habit.objects.get(pk=habit_id)
+            days = habit.checkedday_set.filter(date__month=month, date__year=year)
+            item = create_template(habit, days)
+        except Habit.DoesNotExist:
+            pass
     
-    return items
+    return item
 
-def save_template(request):
+def create_template(habit, checkeddays):
+    return {
+        'id': habit.id, 
+        'name': habit.name, 
+        'checkeddays': { i: {f"{utils.format_date(day.date.month, day.date.day, day.date.year)}"} for i, day in enumerate(checkeddays)}
+        }
+
+def save_template_request(request):
     if request.method == 'POST' and len(request.POST) > 0:
         habit_id = request.POST['habit_id']
-        checkeddays = [utils.break_formatted_date(request.POST[f'day{index}']) for index in range(1, 32) if f'day{index}' in request.POST and utils.is_date(f'day{index}')]
+        checkeddays = [request.POST[f'day{index}'] for index in range(1, 32) if f'day{index}' in request.POST]
+        save_template(habit_id, checkeddays)
 
-        if utils.is_integer(habit_id) and not (not checkeddays):
-            try:
-                habit = Habit.objects.get(pk=habit_id)
-                for date in checkeddays:
-                    d = CheckedDay(habit=habit, date=timezone.now().replace(month=date[0], day=date[1], year=date[2]))
-                    d.save()
-                
-                return HttpResponse('Items were modified 201')
-            except Habit.DoesNotExist:
-                return HttpResponse("Item does not exists") #CORRECT THIS TO APPROPRIATE RESPONSE
 
-        return HttpResponse('Nothing to save... nothing was modified')
+def save_template(habit_id, dates):
+    fdates = [utils.break_formatted_date(date) for date in dates if type(date) == str]
 
-    return HttpResponse("MUST BE A POST REQUEST")
+    if utils.is_integer(habit_id) and not ([] in fdates):
+        try:
+            habit = Habit.objects.get(pk=habit_id)
+            checkeddays = []
+            for date in fdates:
+                month, day, year = date
+                d = CheckedDay(habit=habit, date=timezone.now().replace(month=month, day=day, year=year))
+                d.save()
+                checkeddays.append(d)
+
+            return create_template(habit, checkeddays)
+        except Habit.DoesNotExist:
+            pass
+    
+    return False

@@ -4,7 +4,7 @@ _MIN_YEAR = 2000
 
 def break_formatted_date(date):
     items = list(map(int, date.split('-')))
-    return items if len(items) == 3 else []
+    return items if len(items) == 3 and is_month(items[0]) and is_day(items[1]) and is_year(items[2]) else []
 
 def format_date(month, day, year): #value error if a string is passed
     month = int(month)
@@ -53,3 +53,8 @@ def is_date(date):
 
 def is_integer(value):
     return type(value) == int
+
+
+def log(string):
+    with open('log.log', 'w') as file:
+        file.write(str(string))
