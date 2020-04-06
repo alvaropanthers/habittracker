@@ -5,22 +5,56 @@ from django.utils import timezone
 from datetime import datetime
 from .models import Habit, CheckedDay
 from . import utils
+from . import status
+
+def prepare_resource(data, msg=status.HTTP_404_MESSAGE, status=status.HTTP_404_NOT_FOUND):
+    if not data:
+        return HttpResponse(msg, status=status)
+
+    return JsonResponse(data)
 
 #Return all templates
 def get_templates(request):
-    return JsonResponse(get_all_templates())
+    return prepare_resource(get_all_templates())
 
 #Return all templates of specified month
 def get_templates_by_month(request, month):
-    return JsonResponse(get_all_templates(month))
+    return prepare_resource(get_all_templates(month))
 
 #Returns the template of specified habit
 def get_template_by_habit_id(request, habit_id):
-    return JsonResponse(get_template(habit_id=habit_id))
+    return prepare_resource(get_template(habit_id=habit_id))
 
 #Returns the template of specified habit and month
 def get_template_by_habit_id_and_month(request, habit_id, month):
-    return JsonResponse(get_template(habit_id, month))
+    return prepare_resource(get_template(habit_id, month))
+
+def create_habit_resource(request):
+    item = {}
+    if request.method == 'POST':
+        habit_name = request.POST['name'] if 'name' in request.POST else None
+        data = save_habit(habit_name)
+        if data:
+            item = data
+        else:
+            return prepare_resource(None, msg='name min len is 5', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    return prepare_resource(item)
+
+def create_template_resource(request):
+    items = {}
+    if request.method == 'POST':
+        habit_id = request.POST['habit_id'] if 'habit_id' in request.POST else None
+        checkeddays = [request.POST[f'day{index}'] for index in range(1, 32) if f'day{index}' in request.POST]
+        if habit_id and checkeddays:
+            try:
+                items = save_template(habit_id, checkeddays)
+            except ValueError:
+                return prepare_resource(None, msg='Malformed paremeter values', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            return prepare_resource(None, msg='Missing parameters', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    return prepare_resource(items)
 
 #return list of habits with corresponding completed days given the month
 #Need to use timezone instead of datetime, read about timezone below
@@ -54,21 +88,24 @@ def get_template(habit_id, month=None, year=None):
             item = create_template(habit, days)
         except Habit.DoesNotExist:
             pass
-    
+
     return item
 
 def create_template(habit, checkeddays):
     return {
         'id': habit.id, 
         'name': habit.name, 
-        'checkeddays': { i: {f"{utils.format_date(day.date.month, day.date.day, day.date.year)}"} for i, day in enumerate(checkeddays)}
+        'checkeddays': { i: f"{utils.format_date(day.date.month, day.date.day, day.date.year)}" for i, day in enumerate(checkeddays)}
         }
 
-def save_template_request(request):
-    if request.method == 'POST' and len(request.POST) > 0:
-        habit_id = request.POST['habit_id']
-        checkeddays = [request.POST[f'day{index}'] for index in range(1, 32) if f'day{index}' in request.POST]
-        save_template(habit_id, checkeddays)
+MIN_LEN_HABIT_NAME = 5
+def save_habit(name):
+    if name and len(name) >= MIN_LEN_HABIT_NAME:
+        habit = Habit(name=name)
+        habit.save()
+        return create_template(habit, {})
+
+    return False
 
 
 def save_template(habit_id, dates):
@@ -86,6 +123,6 @@ def save_template(habit_id, dates):
 
             return create_template(habit, checkeddays)
         except Habit.DoesNotExist:
-            pass
+            return False
     
-    return False
+    raise ValueError

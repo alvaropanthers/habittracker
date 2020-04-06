@@ -74,7 +74,7 @@ class ViewTestClases(TestCase):
         cd = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=5, year=2020))
         cd2 = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=10, year=2020))
         self.assertEqual(views.create_template(habit, habit.checkedday_set.all()),  {
-            'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}
+            'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}
             })
 
     def test_get_all_templates(self):
@@ -87,34 +87,34 @@ class ViewTestClases(TestCase):
         
         cd = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=5, year=2020))
         cd2 = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=10, year=2020))
-        self.assertEqual(views.get_all_templates(), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}}})
+        self.assertEqual(views.get_all_templates(), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}}})
 
         cd3 = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(day=20, month=11, year=2020))
-        self.assertEqual(views.get_all_templates(month=11), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'11-20-2020'}}}})
+        self.assertEqual(views.get_all_templates(month=11), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '11-20-2020'}}})
 
         cd3 = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(day=20, month=11, year=2013))
-        self.assertEqual(views.get_all_templates(month=11, year=2013), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'11-20-2013'}}}})
+        self.assertEqual(views.get_all_templates(month=11, year=2013), {0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '11-20-2013'}}})
 
         self.assertEqual(views.get_all_templates(month="test"), {})
 
         habit2 = models.Habit.objects.create(name="Reading")
         self.assertEqual(views.get_all_templates(), {
-            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}}, 
+            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}}, 
             1: {'id': 2, 'name': 'Reading', 'checkeddays': {}}
             })
 
         habit3 = models.Habit.objects.create(name="Programming")
         self.assertEqual(views.get_all_templates(), {
-            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}}, 
+            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}}, 
             1: {'id': 2, 'name': 'Reading', 'checkeddays': {}},
             2: {'id': 3, 'name': 'Programming', 'checkeddays': {}}
             })
 
         models.CheckedDay.objects.create(habit=habit3, date=timezone.now().replace(month=4, day=5, year=2020))
         self.assertEqual(views.get_all_templates(), {
-            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}}, 
+            0: {'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}}, 
             1: {'id': 2, 'name': 'Reading', 'checkeddays': {}},
-            2: {'id': 3, 'name': 'Programming', 'checkeddays': {0: {'04-05-2020'}}}
+            2: {'id': 3, 'name': 'Programming', 'checkeddays': {0: '04-05-2020'}}
             })
 
     def test_get_template(self):
@@ -123,19 +123,19 @@ class ViewTestClases(TestCase):
         
         cd = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=5, year=2020))
         cd2 = models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=4, day=10, year=2020))
-        self.assertEqual(views.get_template(habit.id), {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'04-05-2020'}, 1: {'04-10-2020'}}})
+        self.assertEqual(views.get_template(habit.id), {'id': 1, 'name': 'Workout', 'checkeddays': {0: '04-05-2020', 1: '04-10-2020'}})
 
         self.assertEqual(views.get_template(10), {})
 
         models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=11, day=5, year=2020))
-        self.assertEqual(views.get_template(habit.id, month=11), {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'11-05-2020'}}})
+        self.assertEqual(views.get_template(habit.id, month=11), {'id': 1, 'name': 'Workout', 'checkeddays': {0: '11-05-2020'}})
 
         models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=11, day=5, year=2013))
-        self.assertEqual(views.get_template(habit.id, month=11, year=2013), {'id': 1, 'name': 'Workout', 'checkeddays': {0: {'11-05-2013'}}})
+        self.assertEqual(views.get_template(habit.id, month=11, year=2013), {'id': 1, 'name': 'Workout', 'checkeddays': {0: '11-05-2013'}})
 
         self.assertEqual(views.get_template(habit.id, month='string', year=2013), {})
 
-    #SHOULD RETURN THE CREATED OBJECT
+    # #SHOULD RETURN THE CREATED OBJECT
     def test_save_template(self):
         self.assertFalse(views.save_template(1, [1, 2, 3]))
         
@@ -143,18 +143,125 @@ class ViewTestClases(TestCase):
         self.assertEqual(views.save_template(habit_id=1, dates=['04-20-2020', '04-11-2020', '04-15-2020', '04-01-2020', '04-02-2020']), {
             'id': 1,
             'name': 'Workout',
-            'checkeddays': {0: {'04-20-2020'}, 1: {'04-11-2020'}, 2: {'04-15-2020'}, 3: {'04-01-2020'}, 4: {'04-02-2020'}}
+            'checkeddays': {0: '04-20-2020', 1: '04-11-2020', 2: '04-15-2020', 3: '04-01-2020', 4: '04-02-2020'}
         })
 
         self.assertFalse(views.save_template(habit_id=10, dates=['04-20-2020', '04-11-2020', '04-15-2020', '04-01-2020', '04-02-2020']))
-        self.assertFalse(views.save_template(habit_id=1, dates=['04-20-20', '04-11-2020', '04-15-2020', '04-01-2020', '04-02-2020']))
+        # self.assertFalse(views.save_template(habit_id=1, dates=['04-20-20', '04-11-2020', '04-15-2020', '04-01-2020', '04-02-2020']))
 
         habit = models.Habit.objects.create(name="Reading")
         self.assertEqual(views.save_template(habit_id=2, dates=['04-20-2013']), {
             'id': 2,
             'name': 'Reading',
-            'checkeddays': {0: {'04-20-2013'}}
+            'checkeddays': {0: '04-20-2013'}
         })
 
-        
+    def test_save_habit(self):
+        self.assertFalse(views.save_habit('hola'))
+        self.assertFalse(views.save_habit('thr'))
+        self.assertEqual(views.save_habit('Workout'), {'id': 1, 'name': 'Workout', 'checkeddays': {}})
+        self.assertEqual(views.save_habit('Read a book'), {'id': 2, 'name': 'Read a book', 'checkeddays': {}})
+        self.assertEqual(views.save_habit('Program for at least four hours'), {'id': 3, 'name': 'Program for at least four hours', 'checkeddays': {}})
 
+
+
+from django.test import Client
+from . import status
+class TestViewRequests(TestCase):
+    def test_get_templates(self):
+        c = Client()
+        response = c.get('/api/templates')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.content.decode(), status.HTTP_404_MESSAGE)
+
+        models.Habit.objects.create(name="Workout")
+        response = c.get('/api/templates')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        models.Habit.objects.create(name="Reading")
+        response = c.get('/api/templates')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_templates_by_month(self):
+        c = Client()
+        response = c.get('/api/templates/1')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.content.decode(), status.HTTP_404_MESSAGE)
+
+        habit = models.Habit.objects.create(name="Reading")
+        response = c.get('/api/templates/1')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"0": {"id": 1, "name": "Reading", "checkeddays": {}}}')
+
+        models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=1, day=5, year=2020))
+        models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=1, day=20, year=2020))
+        response = c.get('/api/templates/1')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"0": {"id": 1, "name": "Reading", "checkeddays": {"0": "01-05-2020", "1": "01-20-2020"}}}')
+
+        models.CheckedDay.objects.create(habit=habit, date=timezone.now().replace(month=11, day=5, year=2020))
+        response = c.get('/api/templates/11')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"0": {"id": 1, "name": "Reading", "checkeddays": {"0": "11-05-2020"}}}')
+
+    def test_get_template_by_habit_id(self):
+        c = Client()
+        response = c.get('/api/template/1')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.content.decode(), status.HTTP_404_MESSAGE)
+
+        habit = models.Habit.objects.create(name="Reading")
+        models.CheckedDay.objects.create(habit=habit, date=timezone.now())
+        response = c.get('/api/template/1')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"id": 1, "name": "Reading", "checkeddays": {"0": "04-06-2020"}}')
+        
+        habit = models.Habit.objects.create(name="Workout")
+        response = c.get('/api/template/2')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"id": 2, "name": "Workout", "checkeddays": {}}')
+
+    def test_create_habit_resource(self):
+        c = Client()
+        response = c.get('/api/habit')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+        response = c.post('/api/habit')
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        self.assertEqual(response.content.decode(), 'name min len is 5')
+
+        response = c.post('/api/habit', data={'name': 'Workout'})
+        self.assertEqual(response.content.decode(), '{"id": 1, "name": "Workout", "checkeddays": {}}')
+
+        response = c.post('/api/habit', data={'name': 'Read for two hours'})
+        self.assertEqual(response.content.decode(), '{"id": 2, "name": "Read for two hours", "checkeddays": {}}')
+    
+        response = c.post('/api/habit', data={'name': 'eng'})
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        self.assertEqual(response.content.decode(), 'name min len is 5')
+    
+    def test_create_template_resource(self):
+        c = Client()
+        response = c.get('/api/template')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.content.decode(), status.HTTP_404_MESSAGE)
+
+        response = c.post('/api/template')
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        response = c.post('/api/template', data={'name': 'acv'})
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        response = c.post('/api/template', data={'habit_id': 1, 'day1': '01-04-2020'})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        habit = models.Habit.objects.create(name="Workout")
+        response = c.post('/api/template', data={'habit_id': 1, 'day1': '01-04-2020', 'day2': '01-20-2020'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"id": 1, "name": "Workout", "checkeddays": {"0": "01-04-2020", "1": "01-20-2020"}}')
+
+        habit = models.Habit.objects.create(name="Reading")
+        response = c.post('/api/template', data={'habit_id': 2, 'day1': 'xx-xx-xx', 'day2': '01-20-2020'})
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # self.assertEqual(response.content.decode(), '{"id": 1, "name": "Reading", "checkeddays": {"0": "01-04-2020", "1": "01-20-2020"}}')

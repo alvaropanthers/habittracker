@@ -3,8 +3,14 @@ from django.utils import timezone
 _MIN_YEAR = 2000
 
 def break_formatted_date(date):
-    items = list(map(int, date.split('-')))
-    return items if len(items) == 3 and is_month(items[0]) and is_day(items[1]) and is_year(items[2]) else []
+    try:
+        items = list(map(int, date.split('-')))
+        if len(items) == 3 and is_month(items[0]) and is_day(items[1]) and is_year(items[2]):
+            return items
+    except ValueError:
+        pass
+
+    return []
 
 def format_date(month, day, year): #value error if a string is passed
     month = int(month)
@@ -52,9 +58,25 @@ def is_date(date):
         return False
 
 def is_integer(value):
-    return type(value) == int
+    try:
+        val = int(value)
+    except ValueError:
+        return False
 
+    return True
 
-def log(string):
-    with open('log.log', 'w') as file:
-        file.write(str(string))
+LOG_DEFAULT = 0
+LOG_ERROR = 1
+def log(string, type=LOG_DEFAULT):
+    with open('tracker/logs/log.log', 'a') as file:
+        dt = timezone.now()
+        if type == LOG_DEFAULT:
+            file.write('DEFAULT LOG\n')
+        elif type == LOG_ERROR:
+            file.write('ERROR LOG\n')
+
+        file.write(f'{format_date(dt.month, dt.day, dt.year)} ---- {dt.hour}:{dt.minute}:{dt.second}:{dt.microsecond}\n')
+        file.write(f'{str(string)}\n')
+        file.write(100 * '-')
+        file.write('\n')
+
