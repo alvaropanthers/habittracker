@@ -7,6 +7,11 @@ from .models import Habit, CheckedDay
 from . import utils
 from . import status
 
+#NOTE
+#TEST FOR NEGATIVE DATES AS INPUT
+#EXAMPLE -5, ETC....
+
+
 def prepare_resource(data, msg=status.HTTP_404_MESSAGE, status=status.HTTP_404_NOT_FOUND):
     if not data:
         return HttpResponse(msg, status=status)
@@ -95,7 +100,7 @@ def create_template(habit, checkeddays):
     return {
         'id': habit.id, 
         'name': habit.name, 
-        'checkeddays': { i: f"{utils.format_date(day.date.month, day.date.day, day.date.year)}" for i, day in enumerate(checkeddays)}
+        'checkeddays': [ f"{utils.format_date(day.date.month, day.date.day, day.date.year)}" for day in checkeddays ]
         }
 
 MIN_LEN_HABIT_NAME = 5
