@@ -2,132 +2,201 @@ from django.shortcuts import render
 from django.http.response import HttpResponse, JsonResponse
 from django.http.request import HttpRequest
 from django.utils import timezone
+from django.http import QueryDict
 from datetime import datetime
 from .models import Habit, CheckedDay
 from . import utils
 from . import status
+from django.views import View
+import json
 
-#NOTE
-#TEST FOR NEGATIVE DATES AS INPUT
-#EXAMPLE -5, ETC....
+class TemplateView(View):
+    #Should use slug for template name instead
+    def get(self, request):
+        name = request.GET.get('name') if 'name' in request.GET else None 
+        month = request.GET.get('month') if 'month' in request.GET else None
+        year = request.GET.get('year') if 'year' in request.GET else None
+        
+        if name and month and year:
+            template = Template(name=name, month=month, year=year)
+            if not template.isNew():
+                return JsonResponse(template.createTemplateDict())
+        
+        return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
 
-def prepare_resource(data, msg=status.HTTP_404_MESSAGE, status=status.HTTP_404_NOT_FOUND):
-    if not data:
-        return HttpResponse(msg, status=status)
+    def post(self, request):
+        name = request.POST.get('name') if 'name' in request.POST else None
+        if name and (len(name) >= MIN_LEN_HABIT_NAME):
+            name = request.POST.get('name')
+            time = timezone.now()
+            template = Template(name=name, month=time.month, year=time.year)
+            template.save()
+            return JsonResponse(template.createTemplateDict())
 
-    return JsonResponse(data)
+        return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request):
+        put = json.loads(request.body) #Might not work in production
+        name = put['name'] if 'name' in put else None
+        newName = put['newName'] if 'newName' in put else None
+        # name = put.get('name') if 'name' in put else None
+        # newName = put.get('newName') if 'newName' in put else None
+        if name and newName:
+            time = timezone.now()
+            template = Template(name, month=time.month, year=time.year)
+            if not template.isNew() and template.update(newName):
+                template.save()
+                return JsonResponse(template.createTemplateDict())
 
-#Return all templates
-def get_templates(request):
-    return prepare_resource(get_all_templates())
+        return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
-#Return all templates of specified month
-def get_templates_by_month(request, month):
-    return prepare_resource(get_all_templates(month))
+    def delete(self, request):
+        delete = json.loads(request.body) #Might not work in production
+        habit_id = delete['id'] if 'id' in delete else None
+        name = delete['name'] if 'name' in delete else None
 
-#Returns the template of specified habit
-def get_template_by_habit_id(request, habit_id):
-    return prepare_resource(get_template(habit_id=habit_id))
+        if habit_id and name:
+            time = timezone.now()
+            template = Template(name, month=time.month, year=time.year)
+            if not template.isNew() and template.delete():
+                return HttpResponse('Deleted')
 
-#Returns the template of specified habit and month
-def get_template_by_habit_id_and_month(request, habit_id, month):
-    return prepare_resource(get_template(habit_id, month))
+        return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
-def create_habit_resource(request):
-    item = {}
-    if request.method == 'POST':
-        habit_name = request.POST['name'] if 'name' in request.POST else None
-        data = save_habit(habit_name)
-        if data:
-            item = data
-        else:
-            return prepare_resource(None, msg='name min len is 5', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+class TemplatesView(View):
+    def get(self, request):
+        month = request.GET.get('month') if 'month' in request.GET else None
+        year = request.GET.get('year') if 'year' in request.GET else None
+        
+        if month and year:
+            templates = Templates()
+            result = templates.getAll(month=month, year=year)
+            if result:
+                return JsonResponse(result)
 
-    return prepare_resource(item)
-
-def create_template_resource(request):
-    items = {}
-    if request.method == 'POST':
-        habit_id = request.POST['habit_id'] if 'habit_id' in request.POST else None
-        checkeddays = [request.POST[f'day{index}'] for index in range(1, 32) if f'day{index}' in request.POST]
-        if habit_id and checkeddays:
-            try:
-                items = save_template(habit_id, checkeddays)
-            except ValueError:
-                return prepare_resource(None, msg='Malformed paremeter values', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-        else:
-            return prepare_resource(None, msg='Missing parameters', status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-    return prepare_resource(items)
-
-#return list of habits with corresponding completed days given the month
-#Need to use timezone instead of datetime, read about timezone below
-#https://docs.djangoproject.com/en/3.0/topics/i18n/timezones/
-#Is good practice to store datetime data in UTC. The main reason is Daylight Saving Time.
-#Returns {} if nothing is found or parameters are incorrect
-def get_all_templates(month=None, year=None):
-    now = timezone.now()
-    month = month if month is not None else now.month
-    year = year if year is not None else now.year
-    items = {}
-
-    if utils.is_month(month) and utils.is_year(year):
-        habits = Habit.objects.all()
-        for index, habit in enumerate(habits):
-            days = habit.checkedday_set.filter(date__month=month, date__year=year)
-            items[index] = create_template(habit, days)
-
-    return items
-
-def get_template(habit_id, month=None, year=None):
-    now = timezone.now()
-    month = month if month is not None else now.month
-    year = year if year is not None else now.year
-    item = {}
-
-    if utils.is_month(month) and utils.is_year(year):
-        try:
-            habit = Habit.objects.get(pk=habit_id)
-            days = habit.checkedday_set.filter(date__month=month, date__year=year)
-            item = create_template(habit, days)
-        except Habit.DoesNotExist:
-            pass
-
-    return item
-
-def create_template(habit, checkeddays):
-    return {
-        'id': habit.id, 
-        'name': habit.name, 
-        'checkeddays': [ f"{utils.format_date(day.date.month, day.date.day, day.date.year)}" for day in checkeddays ]
-        }
+        return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
 MIN_LEN_HABIT_NAME = 5
-def save_habit(name):
-    if name and len(name) >= MIN_LEN_HABIT_NAME:
-        habit = Habit(name=name)
-        habit.save()
-        return create_template(habit, {})
-
-    return False
-
-
-def save_template(habit_id, dates):
-    fdates = [utils.break_formatted_date(date) for date in dates if type(date) == str]
-
-    if utils.is_integer(habit_id) and not ([] in fdates):
+class Template:
+    def __init__(self, name, month, year):
         try:
-            habit = Habit.objects.get(pk=habit_id)
-            checkeddays = []
-            for date in fdates:
-                month, day, year = date
-                d = CheckedDay(habit=habit, date=timezone.now().replace(month=month, day=day, year=year))
-                d.save()
-                checkeddays.append(d)
-
-            return create_template(habit, checkeddays)
+            self.habit = Habit.objects.get(name=name)
+            self.new = False
         except Habit.DoesNotExist:
-            return False
+            self.habit = Habit(name=name)
+            self.new = True
+        
+        self.month = month
+        self.year = year
+        self.days = []
+        self.rmDays = []
+
+    def addDay(self, day):
+        try:
+            self.rmDays.remove(day)
+        except ValueError:
+            pass
+        
+        self.days.append(day)
     
-    raise ValueError
+    def removeDay(self, day):
+        try:
+            self.days.remove(day)
+        except ValueError:
+            pass
+        self.rmDays.append(day)
+
+    def update(self, name):
+        if name and (len(name) >= MIN_LEN_HABIT_NAME):
+            self.habit.name = name
+            return True
+        
+        return False
+
+    def save(self):
+        self.habit.save()
+        
+        #Save
+        for day in self.days:
+            newD = CheckedDay(habit=self.habit, date=timezone.now().replace(month=int(self.month), day=int(day), year=int(self.year)))
+            newD.save()
+
+        #Delete
+        for day in self.rmDays:
+            try:
+                delD = CheckedDay.objects.get(date__month=self.month, date__year=self.year, date__day=day)
+                delD.delete()
+            except CheckedDay.DoesNotExist:
+                pass
+        
+        return self.createTemplateDict()
+
+    def delete(self):
+        self.habit.delete()
+        return True
+
+    def isNew(self):
+        return self.new
+
+    def createTemplateDict(self):
+        cds = self.habit.checkedday_set.filter(date__month=self.month, date__year=self.year)
+        return { 'id': self.habit.id, 'name': self.habit.name, 'month': self.month, 'year': self.year, 'days': [ day.date.day for day in cds ] }
+
+class Templates:
+    #Need to use timezone instead of datetime, read about timezone below
+    #https://docs.djangoproject.com/en/3.0/topics/i18n/timezones/
+    #It's good practice to store datetime data in UTC. The main reason is Daylight Saving Time.
+    def get(self, habit_id, month, year):
+        item = {}
+        if utils.is_month(month) and utils.is_year(year):
+            try:
+                habit = Habit.objects.get(pk=habit_id)
+                days = habit.checkedday_set.filter(date__month=month, date__year=year)
+                item = self.createTemplateDict(habit=habit, month=month, year=year, checkeddays=days)
+            except Habit.DoesNotExist:
+                pass
+
+        return item
+
+    def getAll(self, month, year):
+        items = {}
+
+        if utils.is_month(month) and utils.is_year(year):
+            habits = Habit.objects.all()
+            for index, habit in enumerate(habits):
+                days = habit.checkedday_set.filter(date__month=month, date__year=year)
+                items[index] = self.createTemplateDict(habit=habit, month=month, year=year, checkeddays=days)
+
+        return items
+
+
+    def resource(self, habit_id, month, year, days, create=True, delete=False):
+        d = [int(day) if utils.is_day(day) else False for day in days]
+        if utils.is_integer(habit_id) and utils.is_month(month) and utils.is_year(year) and not (False in d):
+            try:
+                habit = Habit.objects.get(pk=habit_id)
+                for day in d:
+                    try:
+                        item = CheckedDay.objects.get(date__month=month, date__day=day, date__year=year)
+                        if delete:
+                            item.delete()
+                    except CheckedDay.DoesNotExist:
+                        if create:
+                            newD = CheckedDay(habit=habit, date=timezone.now().replace(month=int(month), day=int(day), year=int(year)))
+                            newD.save()
+                if create or delete:
+                    return self.createTemplateDict(habit, month, year, habit.checkedday_set.filter(date__month=month, date__year=year))
+            except Habit.DoesNotExist:
+                pass
+        
+        return False
+
+    def add(self, habit_id, month, year, days):
+        return self.resource(habit_id=habit_id, month=month, year=year, days=days)
+
+    def delete(self, habit_id, month, year, days):
+        return self.resource(habit_id=habit_id, month=month, year=year, days=days, create=False, delete=True)
+
+    def createTemplateDict(self, habit, month, year, checkeddays):
+        return { 'id': habit.id, 'name': habit.name, 'month': month, 'year': year, 'days': [ day.date.day for day in checkeddays ] }

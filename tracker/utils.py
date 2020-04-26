@@ -7,7 +7,7 @@ def break_formatted_date(date):
         items = list(map(int, date.split('-')))
         if len(items) == 3 and is_month(items[0]) and is_day(items[1]) and is_year(items[2]):
             return items
-    except ValueError:
+    except (ValueError, TypeError):
         pass
 
     return []
@@ -35,32 +35,32 @@ def format_date(month, day, year): #value error if a string is passed
 def is_month(month):
     try:
         return 1 <= int(month) <= 12
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 def is_day(day):
     try:
         return 1 <= int(day) <= 31
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 def is_year(year):
     try:
         return _MIN_YEAR <= int(year) <= timezone.now().year
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 def is_date(date):
     try:
         month, day, year = break_formatted_date(date)
         return is_month(month) and is_day(day) and is_year(year)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 def is_integer(value):
     try:
         val = int(value)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
     return True
@@ -79,4 +79,3 @@ def log(string, type=LOG_DEFAULT):
         file.write(f'{str(string)}\n')
         file.write(100 * '-')
         file.write('\n')
-
