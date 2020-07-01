@@ -187,6 +187,11 @@ class TemplateViewTestCase(TestCase):
         response = c.post('/api/template', data={'name': 'Wo'})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+        response = c.post('/api/template', data={"name": "Working Out", 'days': (1, 2, 3, 4, 5, 6, 7, 8, 9, 10), 'month': 4, 'year': 2020})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"id": 1, "name": "Working Out", "month": "4", "year": "2020", "days": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}')
+
+
     def test_put(self):
         c = Client()
         response = c.post('/api/template', data={'name': 'Working Out'})
@@ -201,8 +206,19 @@ class TemplateViewTestCase(TestCase):
         response = c.post('/api/template', data={'name': 'Working Out'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = c.delete('/api/template', data={'id': 1, 'name': 'Working Out'}, content_type='application/json')
+        response = c.delete('/api/template', data={'name': 'Working Out'}, content_type='application/json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+        response = c.post('/api/template', data={'name': 'Working Out'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = c.post('/api/template', data={"name": "Working Out", 'days': (1, 2, 3, 4, 5, 6, 7, 8, 9, 10), 'month': 4, 'year': 2020})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+ 
+        response = c.delete('/api/template', data={'name': 'Working Out', 'month': 4, 'year': 2020, 'days': (1, 2, 3, 4)}, content_type='application/json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content.decode(), '{"id": 2, "name": "Working Out", "month": 4, "year": 2020, "days": [5, 6, 7, 8, 9, 10]}')
+
 
     def test_get(self):
         c = Client()

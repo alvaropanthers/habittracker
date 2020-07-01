@@ -26,13 +26,25 @@ class TemplateView(View):
 
 
     def post(self, request):
-        name = request.POST.get('name') if 'name' in request.POST else None
-        if name and (len(name) >= MIN_LEN_HABIT_NAME):
-            name = request.POST.get('name')
+        name = request.POST_QD.get('name') if 'name' in request.POST_QD else None
+        days = request.POST_QD.getlist('days') if 'days' in request.POST_QD else None
+        month = request.POST_QD.get('month') if 'month' in request.POST_QD else None
+        year = request.POST_QD.get('year') if 'year' in request.POST_QD else None
+
+        if name and (len(name) >= MIN_LEN_HABIT_NAME) and not days:
             time = timezone.now()
             template = Template(name=name, month=time.month, year=time.year)
-            template.save()
-            return JsonResponse(template.createTemplateDict())
+            if template.isNew():
+                template.save()
+                return JsonResponse(template.createTemplateDict())
+            else:
+                return HttpResponse('Resource already exists', status=status.HTTP_409_CONFLICT)
+        elif name and days and month and year:
+            template = Template(name=name, month=month, year=year)
+            if not template.isNew():
+                for day in days:
+                    template.addDay(day)
+                return JsonResponse(template.save())
 
         return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
     
@@ -52,15 +64,22 @@ class TemplateView(View):
         return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        delete = json.loads(request.body) #Might not work in production
-        habit_id = delete['id'] if 'id' in delete else None
-        name = delete['name'] if 'name' in delete else None
+        name = request.DELETE_QD.get('name') if 'name' in request.DELETE_QD else None
+        month = request.DELETE_QD.get('month') if 'month' in request.DELETE_QD else None
+        year = request.DELETE_QD.get('year') if 'year' in request.DELETE_QD else None
+        days = request.DELETE_QD.getlist('days') if 'days' in request.DELETE_QD else None
 
-        if habit_id and name:
+        if name and not days:
             time = timezone.now()
             template = Template(name, month=time.month, year=time.year)
             if not template.isNew() and template.delete():
                 return HttpResponse('Deleted')
+        elif name and month and year and days:
+            template = Template(name, month=month, year=year)
+            if not template.isNew():
+                for day in days:
+                    template.removeDay(day)
+                return JsonResponse(template.save())
 
         return HttpResponse('Invalid or missing data', status=status.HTTP_400_BAD_REQUEST)
 
@@ -69,6 +88,9 @@ class TemplatesView(View):
         month = request.GET.get('month') if 'month' in request.GET else None
         year = request.GET.get('year') if 'year' in request.GET else None
         
+        month = request.GET_QD.get('month') if 'month' in request.GET_QD else None
+        year = request.GET_QD.get('year') if 'year' in request.GET_QD else None
+
         if month and year:
             templates = Templates()
             result = templates.getAll(month=month, year=year)
@@ -119,13 +141,16 @@ class Template:
         
         #Save
         for day in self.days:
-            newD = CheckedDay(habit=self.habit, date=timezone.now().replace(month=int(self.month), day=int(day), year=int(self.year)))
-            newD.save()
+            try:
+                self.habit.checkedday_set.get(date__month=self.month, date__year=self.year, date__day=day)
+            except CheckedDay.DoesNotExist:
+                newD = CheckedDay(habit=self.habit, date=timezone.now().replace(month=int(self.month), day=int(day), year=int(self.year)))
+                newD.save()
 
         #Delete
         for day in self.rmDays:
             try:
-                delD = CheckedDay.objects.get(date__month=self.month, date__year=self.year, date__day=day)
+                delD = self.habit.checkedday_set.get(date__month=self.month, date__year=self.year, date__day=day)
                 delD.delete()
             except CheckedDay.DoesNotExist:
                 pass
